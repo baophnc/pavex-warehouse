@@ -34,9 +34,23 @@ class _LookupScreenState extends State<LookupScreen> {
 
   Future<void> _perform(String action) async {
     final session = AppScope.read(context);
+    final repository = session.repository;
     setState(() => _busy = true);
     try {
-      final response = await session.repository.scan(widget.code, action, hubId: session.currentHub?.id);
+      var response = await repository.scan(widget.code, action, hubId: session.currentHub?.id);
+      // The job is the worker's but not started yet: start it, as the continuous scanner does.
+      final startable = response.results
+          .where((result) => result.code == 'assignment_not_started' && result.assignmentId != null)
+          .firstOrNull;
+      if (startable != null) {
+        try {
+          await repository.acceptTask(startable.assignmentId!);
+        } catch (_) {
+          // Already accepted: starting is what matters.
+        }
+        await repository.startTask(startable.assignmentId!);
+        response = await repository.scan(widget.code, action, hubId: session.currentHub?.id);
+      }
       final failed = response.results.where((result) => !result.ok).toList();
       if (mounted) {
         showMessage(
@@ -45,12 +59,12 @@ class _LookupScreenState extends State<LookupScreen> {
           error: failed.isNotEmpty,
         );
       }
-      await _refresh();
     } catch (error) {
       if (mounted) showMessage(context, errorText(error), error: true);
-    } finally {
-      if (mounted) setState(() => _busy = false);
     }
+    if (!mounted) return;
+    setState(() => _busy = false);
+    await _refresh().catchError((_) {});
   }
 
   @override

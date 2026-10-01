@@ -26,37 +26,22 @@ class ReportsScreen extends StatefulWidget {
 
 class _ReportsScreenState extends State<ReportsScreen> {
   DateRange _range = DateRange.today();
-  bool _hubView = true;
   Future<_ReportData>? _data;
-  String? _loadedFor;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final hubId = AppScope.session(context).currentHub?.id;
-    if (_loadedFor != hubId || _data == null) {
-      _loadedFor = hubId;
-      _data = _load();
-    }
+    _data ??= _load();
   }
 
-  String? get _hubId {
-    final session = AppScope.read(context);
-    return session.user!.role.worksAtHub && _hubView ? session.currentHub?.id : null;
-  }
-
+  /// The worker's own numbers only; hub-wide reports belong to the management portal.
   Future<_ReportData> _load() async {
     final session = AppScope.read(context);
     final repository = session.repository;
-    final role = session.user!.role;
-    final hubId = _hubId;
-    final summary = repository.reportSummary(_range, hubId: hubId);
-    final collections = !role.handlesCash
-        ? Future.value(const <CashCollection>[])
-        : hubId != null
-            ? repository.hubCollections(hubId)
-            : repository.myCollections();
-    final remittances = role == WorkRole.courier && hubId == null ? repository.myRemittances() : Future.value(const <CashRemittance>[]);
+    final courier = session.user!.role == WorkRole.courier;
+    final summary = repository.reportSummary(_range);
+    final collections = courier ? repository.myCollections() : Future.value(const <CashCollection>[]);
+    final remittances = courier ? repository.myRemittances() : Future.value(const <CashRemittance>[]);
     return _ReportData(await summary, await collections, await remittances);
   }
 
@@ -72,7 +57,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
   }
 
   void _open(String kind, String title) => Navigator.of(context).push(MaterialPageRoute(
-        builder: (_) => ReportListScreen(kind: kind, title: title, range: _range, hubId: _hubId),
+        builder: (_) => ReportListScreen(kind: kind, title: title, range: _range),
       ));
 
   @override
@@ -93,20 +78,6 @@ class _ReportsScreenState extends State<ReportsScreen> {
                   ChoiceChip(label: Text(range.label), selected: _range.label == range.label, onSelected: (_) => _setRange(range)),
               ],
             ),
-            if (role.worksAtHub) ...[
-              const SizedBox(height: 10),
-              SegmentedButton<bool>(
-                segments: [
-                  ButtonSegment(value: true, icon: const Icon(Icons.store_mall_directory_outlined), label: Text(session.currentHub?.name ?? 'Bưu cục')),
-                  const ButtonSegment(value: false, icon: Icon(Icons.person_outline), label: Text('Cá nhân')),
-                ],
-                selected: {_hubView},
-                onSelectionChanged: (value) {
-                  _hubView = value.first;
-                  _refresh();
-                },
-              ),
-            ],
             const SizedBox(height: 4),
             Text('${day(_range.from)} – ${day(_range.to)}', style: TextStyle(color: Theme.of(context).colorScheme.outline)),
             FutureBuilder<_ReportData>(
@@ -117,25 +88,20 @@ class _ReportsScreenState extends State<ReportsScreen> {
                   return const Padding(padding: EdgeInsets.all(40), child: Center(child: CircularProgressIndicator()));
                 }
                 final data = snapshot.data!;
-                final hubView = _hubId != null;
+                final courier = role == WorkRole.courier;
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const SectionTitle('Sản lượng'),
+                    const SectionTitle('Việc bạn đã làm'),
                     _grid([
-                      if (!hubView && role == WorkRole.courier)
+                      if (courier)
                         MetricTile(label: 'Kiện đã lấy', value: '${data.summary['pickedUp']}', icon: Icons.move_to_inbox_outlined),
-                      if (hubView) MetricTile(label: 'Kiện nhập kho', value: '${data.summary['received']}', icon: Icons.warehouse_outlined),
-                      if (hubView || role == WorkRole.driver)
-                        MetricTile(label: hubView ? 'Kiện xuất kho' : 'Kiện lên xe', value: '${data.summary['dispatched']}', icon: Icons.fire_truck_outlined),
-                      if (hubView)
-                        MetricTile(
-                          label: 'Tồn kho hiện tại',
-                          value: '${data.summary['inStock']}',
-                          icon: Icons.shelves,
-                          onTap: () => _open('IN_STOCK', 'Hàng tồn kho'),
-                        ),
-                      MetricTile(label: 'Đi giao', value: '${data.summary['outForDelivery']}', icon: Icons.local_shipping_outlined),
+                      if (role.worksAtHub)
+                        MetricTile(label: 'Kiện bạn nhập kho', value: '${data.summary['received']}', icon: Icons.warehouse_outlined),
+                      if (role == WorkRole.driver)
+                        MetricTile(label: 'Kiện lên xe', value: '${data.summary['dispatched']}', icon: Icons.fire_truck_outlined),
+                      if (courier)
+                        MetricTile(label: 'Đi giao', value: '${data.summary['outForDelivery']}', icon: Icons.local_shipping_outlined),
                       MetricTile(
                         label: 'Giao thành công',
                         value: '${data.summary['delivered']}',
@@ -174,9 +140,9 @@ class _ReportsScreenState extends State<ReportsScreen> {
                         onTap: () => _open('RETURNED', 'Hàng đã hoàn'),
                       ),
                     ]),
-                    if (role.handlesCash) ...[
-                      const SectionTitle('Thu chi'),
-                      _CashSummary(data: data, range: _range, hubView: hubView),
+                    if (courier) ...[
+                      const SectionTitle('Tiền bạn thu và nộp'),
+                      _CashSummary(data: data, range: _range),
                     ],
                   ],
                 );
@@ -201,30 +167,23 @@ class _ReportsScreenState extends State<ReportsScreen> {
 
 /// Money in (collected from recipients) against money out (handed to the hub / approved by finance).
 class _CashSummary extends StatelessWidget {
-  const _CashSummary({required this.data, required this.range, required this.hubView});
+  const _CashSummary({required this.data, required this.range});
 
   final _ReportData data;
   final DateRange range;
-  final bool hubView;
 
   @override
   Widget build(BuildContext context) {
     int sum(Iterable<CashCollection> items) => items.fold<int>(0, (total, item) => total + item.amount);
     final rows = <(String, int, Color?)>[
       ('Thu từ người nhận trong kỳ (${data.summary['collectedShipments']} đơn)', data.summary['collectedAmount'], successGreen),
-      if (!hubView) ...[
-        (
+      (
           'Đã nộp về bưu cục trong kỳ',
           data.remittances.where((item) => item.status != 'REJECTED' && range.contains(item.submittedAt)).fold<int>(0, (total, item) => total + item.expectedAmount),
           null,
         ),
         ('Kế toán đã duyệt trong kỳ', data.remittances.where((item) => range.contains(item.approvedAt)).fold<int>(0, (total, item) => total + item.expectedAmount), null),
-        ('Đang giữ, chưa nộp', sum(data.collections.where((item) => item.status == 'HELD' && item.currentHubId == null)), warningAmber),
-      ] else ...[
-        ('Đã nhận, chờ kế toán duyệt', sum(data.collections.where((item) => item.status == 'SUBMITTED')), null),
-        ('Kế toán đã duyệt', sum(data.collections.where((item) => item.status == 'APPROVED')), successGreen),
-        ('Bị trả lại, cần kiểm đếm', sum(data.collections.where((item) => item.status == 'HELD')), Theme.of(context).colorScheme.error),
-      ],
+      ('Đang giữ, chưa nộp', sum(data.collections.where((item) => item.status == 'HELD' && item.currentHubId == null)), warningAmber),
     ];
     return Card(
       child: Column(

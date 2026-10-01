@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart' show MediaType;
 
 import 'config.dart';
+import 'error_messages.dart';
 
 /// A request the server refused, with the reason in plain Vietnamese when possible.
 class ApiException implements Exception {
@@ -58,7 +59,7 @@ class ApiClient {
     }
 
     var streamed = await _guard(send);
-    if (streamed.statusCode == 401 && await (tokens?.refresh() ?? Future.value(false))) {
+    if (_renewable(streamed.statusCode) && await (tokens?.refresh() ?? Future.value(false))) {
       streamed = await _guard(send);
     }
     return _decode(await http.Response.fromStream(streamed));
@@ -83,11 +84,15 @@ class ApiClient {
     }
 
     var response = await send();
-    if (authenticated && response.statusCode == 401 && await (tokens?.refresh() ?? Future.value(false))) {
+    if (authenticated && _renewable(response.statusCode) && await (tokens?.refresh() ?? Future.value(false))) {
       response = await send();
     }
     return _decode(response);
   }
+
+  /// 401: the token expired. 403: it may predate a role or hub change; a refreshed token carries
+  /// the current permissions, so one retry tells a stale token from a real refusal.
+  static bool _renewable(int status) => status == 401 || status == 403;
 
   Uri _uri(String path, Map<String, String?>? query) {
     final base = Uri.parse(config.baseUrl);
@@ -128,7 +133,7 @@ class ApiClient {
     final error = data is Map ? (data['error'] is Map ? data['error'] as Map : data) : const {};
     final code = error['code']?.toString() ?? 'http_${response.statusCode}';
     final message = error['message']?.toString();
-    throw ApiException(response.statusCode, code, _friendly(response.statusCode, message));
+    throw ApiException(response.statusCode, code, errorMessages[code] ?? _friendly(response.statusCode, message));
   }
 
   static String _friendly(int status, String? message) {

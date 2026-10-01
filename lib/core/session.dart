@@ -185,6 +185,17 @@ class SessionController extends ChangeNotifier implements TokenProvider {
     profile = results[0] as Profile;
     hubScope = results[1] as HubScope;
     currentHub = hubScope!.primary;
+    if (user?.role == WorkRole.driver) unawaited(resumeRunningTrip());
+  }
+
+  /// A driver who reopens the app mid-trip keeps sending positions without opening the trips tab.
+  Future<void> resumeRunningTrip() async {
+    try {
+      final running = (await repository.myTrips()).where((trip) => trip.inProgress && trip.tripId != null).firstOrNull;
+      if (running != null) await trips.resume(running.tripId!);
+    } catch (_) {
+      // The trips tab retries when it loads.
+    }
   }
 
   Future<void> _store(AuthTokens tokens) async {

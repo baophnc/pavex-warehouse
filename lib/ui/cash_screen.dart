@@ -94,12 +94,12 @@ class _CourierCashState extends State<_CourierCash> {
     try {
       final remittance = await session.repository.submitRemittance(hub.id, chosen);
       if (mounted) showMessage(context, 'Đã tạo lô nộp tiền ${remittance.remittanceNumber}.');
-      await _refresh();
     } catch (error) {
       if (mounted) showMessage(context, errorText(error), error: true);
-    } finally {
-      if (mounted) setState(() => _busy = false);
     }
+    if (!mounted) return;
+    setState(() => _busy = false);
+    await _refresh().catchError((_) {});
   }
 
   @override
@@ -217,12 +217,12 @@ class _HubCashState extends State<_HubCash> {
     try {
       await AppScope.repository(context).resubmitCollection(item.id);
       if (mounted) showMessage(context, 'Đã gửi duyệt lại ${money(item.amount)}.');
-      await _refresh();
     } catch (error) {
       if (mounted) showMessage(context, errorText(error), error: true);
-    } finally {
-      if (mounted) setState(() => _busyId = null);
     }
+    if (!mounted) return;
+    setState(() => _busyId = null);
+    await _refresh().catchError((_) {});
   }
 
   @override

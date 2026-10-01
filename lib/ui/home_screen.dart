@@ -4,6 +4,7 @@ import '../app.dart';
 import '../core/format.dart';
 import '../core/session.dart';
 import '../data/models.dart';
+import '../data/repository.dart';
 import 'account_screen.dart';
 import 'shell.dart';
 import 'theme.dart';
@@ -43,10 +44,10 @@ class _HomeScreenState extends State<HomeScreen> {
     final availability = repository.availability().then<Availability?>((value) => value).catchError((_) => null);
     final tasks = repository.tasks().catchError((_) => const <WorkTask>[]);
     final held = role == WorkRole.courier
-        ? repository.myCollections(status: 'HELD')
+        ? repository.myCollections(status: 'HELD').catchError((_) => const <CashCollection>[])
         : Future.value(const <CashCollection>[]);
-    final hubId = session.currentHub?.id;
-    final summary = repository.reportSummary(DateRange.today(), hubId: role.worksAtHub ? hubId : null);
+    // Only the worker's own numbers: hub totals belong to the management portal.
+    final summary = repository.reportSummary(DateRange.today()).catchError((_) => ReportSummary.empty);
 
     return _HomeData(
       shifts: await shifts,
@@ -63,17 +64,19 @@ class _HomeScreenState extends State<HomeScreen> {
     await next;
   }
 
+  /// Runs one action and reports only its own outcome; reloading the screen afterwards is separate,
+  /// so a section that fails to reload never turns a done check-in into an error message.
   Future<void> _run(Future<void> Function() action, String done) async {
     setState(() => _busy = true);
     try {
       await action();
       if (mounted) showMessage(context, done);
-      await _refresh();
     } catch (error) {
       if (mounted) showMessage(context, errorText(error), error: true);
-    } finally {
-      if (mounted) setState(() => _busy = false);
     }
+    if (!mounted) return;
+    setState(() => _busy = false);
+    await _refresh().catchError((_) {});
   }
 
   @override
@@ -119,17 +122,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           leading: const Icon(Icons.schedule),
                           title: Text(shift.name),
                           subtitle: Text('${timeOf(shift.startsAt)} – ${timeOf(shift.endsAt)} · ${shift.hubName ?? ''}'),
-                          trailing: shift.canCheckIn
-                              ? FilledButton(
-                                  onPressed: _busy ? null : () => _run(() => repository.checkIn(shift.shiftId), 'Đã vào ca.'),
-                                  child: const Text('Vào ca'),
-                                )
-                              : shift.canCheckOut
-                                  ? OutlinedButton(
-                                      onPressed: _busy ? null : () => _run(() => repository.checkOut(shift.shiftId), 'Đã kết thúc ca.'),
-                                      child: const Text('Ra ca'),
-                                    )
-                                  : Text(shift.checkedOutAt != null ? 'Đã ra ca' : '—'),
+                          trailing: _shiftAction(shift, repository),
                         ),
                       ),
                   if (data.availability != null) ...[
@@ -141,7 +134,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             ? null
                             : (value) => _run(
                                   () => repository.setAvailability(value),
-                                  value ? 'Bạn sẽ được giao việc mới.' : 'Tạm ngưng nhận việc mới.',
+                                  value ? 'Bạn sẽ được giao việc mới khi đang trong ca.' : 'Tạm ngưng nhận việc mới.',
                                 ),
                         title: const Text('Sẵn sàng nhận việc', style: TextStyle(fontWeight: FontWeight.w700)),
                         subtitle: Text(
@@ -169,7 +162,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   ],
                   SectionTitle(
-                    role.worksAtHub ? 'Bưu cục hôm nay' : 'Kết quả hôm nay',
+                    'Kết quả của bạn hôm nay',
                     trailing: TextButton(onPressed: () => widget.onOpenTab(ShellTab.reports), child: const Text('Báo cáo')),
                   ),
                   _TodayNumbers(summary: data.summary, role: role),
@@ -186,6 +179,29 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ),
     );
+  }
+}
+
+extension on _HomeScreenState {
+  /// Check in only while the server accepts it; outside that window say when it opens.
+  Widget _shiftAction(MyShift shift, PavexRepository repository) {
+    final now = DateTime.now();
+    if (shift.canCheckOut) {
+      return OutlinedButton(
+        onPressed: _busy ? null : () => _run(() => repository.checkOut(shift.shiftId), 'Đã ra ca.'),
+        child: const Text('Ra ca'),
+      );
+    }
+    if (shift.checkInOpen(now)) {
+      return FilledButton(
+        onPressed: _busy ? null : () => _run(() => repository.checkIn(shift.shiftId), 'Đã vào ca. Bạn đang sẵn sàng nhận việc.'),
+        child: const Text('Vào ca'),
+      );
+    }
+    final muted = TextStyle(color: Theme.of(context).colorScheme.outline, fontSize: 12);
+    if (shift.checkedOutAt != null) return Text('Đã ra ca', style: muted);
+    if (shift.ended(now)) return Text('Đã hết ca', style: muted);
+    return Text('Vào ca từ ${timeOf(shift.checkInOpensAt)}', style: muted);
   }
 }
 
@@ -209,7 +225,7 @@ class _Greeting extends StatelessWidget {
     final hubs = session.hubScope?.hubs ?? const <MyHub>[];
     final current = session.currentHub;
     return Card(
-      color: pavexRed,
+      color: Theme.of(context).colorScheme.primary,
       child: Padding(
         padding: const EdgeInsets.all(18),
         child: Column(
@@ -304,7 +320,6 @@ class _TodayNumbers extends StatelessWidget {
     final tiles = <MetricTile>[
       if (role == WorkRole.courier) MetricTile(label: 'Kiện đã lấy', value: '${summary['pickedUp']}', icon: Icons.inventory_2_outlined),
       if (role.worksAtHub) MetricTile(label: 'Kiện nhập kho', value: '${summary['received']}', icon: Icons.warehouse_outlined),
-      if (role.worksAtHub) MetricTile(label: 'Tồn kho', value: '${summary['inStock']}', icon: Icons.shelves),
       if (role == WorkRole.driver) MetricTile(label: 'Kiện lên xe', value: '${summary['dispatched']}', icon: Icons.local_shipping_outlined),
       MetricTile(label: 'Giao thành công', value: '${summary['delivered']}', icon: Icons.check_circle_outline, color: successGreen),
       MetricTile(label: 'Giao thất bại', value: '${summary['deliveryFailed']}', icon: Icons.error_outline, color: Theme.of(context).colorScheme.error),

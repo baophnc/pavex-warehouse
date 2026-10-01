@@ -39,7 +39,9 @@ String _passwordErrorText(Object error) {
 }
 
 String? _newPasswordRule(String? value) =>
-    value != null && value.length >= 8 && value.length <= 128 ? null : 'Mật khẩu mới dài 8–128 ký tự';
+    value != null && value.length >= 8 && value.length <= 128 && RegExp(r'\p{L}', unicode: true).hasMatch(value) && RegExp(r'\d').hasMatch(value)
+        ? null
+        : 'Mật khẩu cần 8–128 ký tự, có cả chữ và số';
 
 /// The reset link is `…/reset-password?token=…`; accept the whole link or just the token.
 String extractResetToken(String input) {

@@ -20,7 +20,24 @@ flutter run
 
 - iOS simulator / macOS: `http://localhost:8080`
 - Android emulator: `http://10.0.2.2:8080`
-- Điện thoại thật cùng Wi‑Fi: `http://<IP máy chạy backend>:8080`
+- Điện thoại thật cùng Wi‑Fi: `http://<IP máy chạy backend>:8080` (tường lửa macOS phải cho Java nhận kết nối)
+
+### Điện thoại Android thật qua cáp USB (dễ nhất)
+
+Bật *Tuỳ chọn nhà phát triển → Gỡ lỗi USB*, cắm cáp, rồi chuyển cổng 8080 của điện thoại về máy:
+
+```bash
+~/Library/Android/sdk/platform-tools/adb reverse tcp:8080 tcp:8080
+flutter run --dart-define=PAVEX_API_BASE_URL=http://localhost:8080
+```
+
+`--dart-define` đặt sẵn địa chỉ máy chủ cho bản build; địa chỉ đã lưu trong app (nút **Máy chủ**) vẫn được ưu
+tiên. Rút cáp ra cắm lại thì chạy lại lệnh `adb reverse`.
+
+### Thử nhanh mọi giờ
+
+Đặt `OPERATIONS_SHIFT_FULL_DAY=true` trong `.env` của backend: ai cũng có ca 00:00–24:00 mỗi ngày nên vào ca và
+nhận việc lúc nào cũng được. Tài khoản test nằm trong `scripts/seed-mini/README.md` của backend.
 
 ## Luồng quét mã
 

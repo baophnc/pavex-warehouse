@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:battery_plus/battery_plus.dart';
 import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -27,6 +28,11 @@ class TripTracker extends ChangeNotifier {
   static const _heartbeatAfter = Duration(seconds: 60);
   static const _batchSize = 200;
   static const _maxBuffered = 5000;
+
+  final _battery = Battery();
+
+  /// Read on each flush; attached to the points recorded until the next reading.
+  int? _batteryPct;
 
   StreamSubscription<Position>? _positions;
   Timer? _timer;
@@ -175,6 +181,7 @@ class TripTracker extends ChangeNotifier {
       'speedMps': position.speed >= 0 ? position.speed.clamp(0, 100) : null,
       'headingDeg': position.heading >= 0 ? position.heading.clamp(0, 360) : null,
       'mocked': position.isMocked,
+      'batteryPct': ?_batteryPct,
     });
     if (_buffer.length > _maxBuffered) _buffer.removeRange(0, _buffer.length - _maxBuffered);
     unawaited(_persist());
@@ -183,6 +190,11 @@ class TripTracker extends ChangeNotifier {
 
   /// Sends the buffer, and when the truck stands still asks for one fix so it does not look lost.
   Future<void> _tick() async {
+    try {
+      _batteryPct = (await _battery.batteryLevel).clamp(0, 100);
+    } catch (_) {
+      // Some devices and emulators do not report it; the server just shows no battery.
+    }
     final last = _lastFixAt;
     if (last == null || DateTime.now().difference(last) >= _heartbeatAfter) {
       try {

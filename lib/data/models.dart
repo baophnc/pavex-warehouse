@@ -473,6 +473,14 @@ class MyShift {
 
   bool get canCheckIn => assignmentStatus == 'SCHEDULED';
   bool get canCheckOut => assignmentStatus == 'CHECKED_IN';
+
+  /// Check-in opens 30 minutes before the start and closes when the shift ends (as the server rules).
+  DateTime? get checkInOpensAt => startsAt?.subtract(const Duration(minutes: 30));
+
+  bool checkInOpen(DateTime now) =>
+      canCheckIn && checkInOpensAt != null && endsAt != null && !now.isBefore(checkInOpensAt!) && now.isBefore(endsAt!);
+
+  bool ended(DateTime now) => endsAt != null && !now.isBefore(endsAt!);
 }
 
 class Availability {
@@ -493,6 +501,9 @@ class Availability {
 
 class ReportSummary {
   ReportSummary(this.values);
+
+  /// Shown when the numbers could not be loaded; the rest of the screen still works.
+  static final empty = ReportSummary(const {});
 
   factory ReportSummary.fromJson(Map<String, dynamic> json) =>
       ReportSummary({for (final entry in json.entries) if (entry.value is num) entry.key: (entry.value as num).toInt()});

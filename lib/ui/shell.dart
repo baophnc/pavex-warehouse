@@ -22,7 +22,14 @@ class AppShell extends StatefulWidget {
 class _AppShellState extends State<AppShell> {
   int _index = 0;
 
-  void _goTo(int index) => setState(() => _index = index);
+  /// Bumped each time a tab is opened, so it loads afresh: work done on another tab (a delivery,
+  /// a cash hand-over) shows up without pulling to refresh.
+  final _visits = <int, int>{};
+
+  void _goTo(int index) => setState(() {
+        _index = index;
+        _visits[index] = (_visits[index] ?? 0) + 1;
+      });
 
   @override
   Widget build(BuildContext context) {
@@ -41,7 +48,13 @@ class _AppShellState extends State<AppShell> {
     final index = _index.clamp(0, tabs.length - 1);
 
     return Scaffold(
-      body: IndexedStack(index: index, children: [for (final tab in tabs) tab.screen]),
+      body: IndexedStack(
+        index: index,
+        children: [
+          for (final (position, tab) in tabs.indexed)
+            KeyedSubtree(key: ValueKey('${tab.label}:${_visits[position] ?? 0}'), child: tab.screen),
+        ],
+      ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: index,
         onDestinationSelected: _goTo,

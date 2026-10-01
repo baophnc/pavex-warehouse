@@ -64,18 +64,31 @@ class _TasksScreenState extends State<TasksScreen> {
     await next;
   }
 
+  /// Reports the action's own outcome, then reloads either way so the card shows the real state
+  /// (a job someone else already took, or one that is now in progress).
   Future<void> _act(WorkTask task, Future<void> Function() action, String done) async {
     setState(() => _busyId = task.assignmentId);
     try {
       await action();
       if (mounted) showMessage(context, done);
-      await _refresh();
     } catch (error) {
       if (mounted) showMessage(context, errorText(error), error: true);
-    } finally {
-      if (mounted) setState(() => _busyId = null);
     }
+    if (!mounted) return;
+    setState(() => _busyId = null);
+    await _refresh().catchError((_) {});
   }
+
+  /// Taking a job means doing it now: accept and start in one tap.
+  Future<void> _take(WorkTask task) => _act(
+        task,
+        () async {
+          final repository = AppScope.repository(context);
+          await repository.acceptTask(task.assignmentId);
+          await repository.startTask(task.assignmentId);
+        },
+        'Đã nhận việc. Bắt đầu thôi!',
+      );
 
   Future<void> _reject(WorkTask task) async {
     final controller = TextEditingController();
@@ -154,7 +167,7 @@ class _TasksScreenState extends State<TasksScreen> {
                     child: _TaskCard(
                       task: task,
                       busy: _busyId == task.assignmentId,
-                      onAccept: () => _act(task, () => repository.acceptTask(task.assignmentId), 'Đã nhận việc.'),
+                      onAccept: () => _take(task),
                       onStart: () => _act(task, () => repository.startTask(task.assignmentId), 'Đã bắt đầu.'),
                       onReject: () => _reject(task),
                       onScan: (action) => _open(ScannerScreen(action: action, hubId: task.isHubHandling ? task.hubId : null)),
@@ -253,7 +266,7 @@ class _TaskCard extends StatelessWidget {
                   children: [
                     Expanded(child: OutlinedButton(onPressed: onReject, child: const Text('Từ chối'))),
                     const SizedBox(width: 10),
-                    Expanded(child: FilledButton(onPressed: onAccept, child: const Text('Nhận việc'))),
+                    Expanded(child: FilledButton(onPressed: onAccept, child: const Text('Nhận và bắt đầu'))),
                   ],
                 )
               else if (task.awaitingStart)

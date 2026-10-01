@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../app.dart';
 import 'password_screens.dart';
-import 'theme.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -97,7 +96,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         width: 64,
                         height: 64,
                         alignment: Alignment.center,
-                        decoration: BoxDecoration(color: pavexRed, borderRadius: BorderRadius.circular(18)),
+                        decoration: BoxDecoration(color: Theme.of(context).colorScheme.primary, borderRadius: BorderRadius.circular(18)),
                         child: const Icon(Icons.local_shipping_rounded, color: Colors.white, size: 34),
                       ),
                     ),

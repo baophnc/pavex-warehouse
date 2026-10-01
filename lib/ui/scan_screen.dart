@@ -92,8 +92,8 @@ class _ScanHubScreenState extends State<ScanHubScreen> {
                 child: ListTile(
                   contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   leading: CircleAvatar(
-                    backgroundColor: pavexRed.withValues(alpha: 0.1),
-                    child: Icon(mode.icon, color: pavexRed),
+                    backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+                    child: Icon(mode.icon, color: Theme.of(context).colorScheme.primary),
                   ),
                   title: Text(mode.title, style: const TextStyle(fontWeight: FontWeight.w800)),
                   subtitle: Text(mode.description),

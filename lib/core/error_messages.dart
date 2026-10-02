@@ -12,6 +12,11 @@ const errorMessages = <String, String>{
   'identity_access_revoked': 'Tài khoản không còn quyền làm việc này. Liên hệ trưởng bưu cục.',
   'workforce_member_not_found': 'Tài khoản chưa có hồ sơ nhân sự. Liên hệ trưởng bưu cục.',
   'availability_not_found': 'Chưa có trạng thái nhận việc. Liên hệ trưởng bưu cục.',
+  // Notifications
+  'message_not_allowed': 'Bạn không được gửi thông báo này tới bưu cục đó.',
+  'no_recipients': 'Bưu cục không có ai thuộc nhóm đã chọn.',
+  'shipment_unknown': 'Không tìm thấy vận đơn này để nhắn shop.',
+  'sender_has_no_account': 'Đơn gửi tại quầy: người gửi không có tài khoản. Hãy gọi điện cho khách.',
   // Jobs
   'invalid_assignment_transition': 'Việc này đã được nhận hoặc đang làm. Kéo xuống để tải lại.',
   'assignment_changed': 'Việc vừa thay đổi. Kéo xuống để tải lại.',

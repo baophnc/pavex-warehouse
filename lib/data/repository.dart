@@ -188,4 +188,26 @@ class PavexRepository {
       })) as List)
           .map((item) => ReportItem.fromJson((item as Map).cast()))
           .toList();
+
+  // Notifications.
+
+  Future<NotificationPage> notifications({bool unreadOnly = false, String? cursor}) async => NotificationPage.fromJson(
+        await api.get('/api/v1/notifications', query: {'status': unreadOnly ? 'unread' : 'all', 'limit': '30', 'cursor': cursor}),
+      );
+
+  Future<int> unreadNotifications() async => ((await api.get('/api/v1/notifications/unread-count')) as Map)['count'] as int? ?? 0;
+
+  Future<void> markNotificationRead(String id) => api.patch('/api/v1/notifications/$id/read');
+
+  Future<void> markAllNotificationsRead() => api.post('/api/v1/notifications/read-all');
+
+  Future<MessageOptions> messageOptions() async => MessageOptions.fromJson(await api.get('/api/v1/notifications/messages/options'));
+
+  Future<int> sendHubMessage({required String audience, required String hubId, required String title, required String body}) async =>
+      ((await api.post('/api/v1/notifications/messages/hub', body: {'audience': audience, 'hubId': hubId, 'title': title, 'body': body}))
+              as Map)['recipientCount'] as int? ??
+          0;
+
+  Future<void> messageShop(String trackingCode, String body) =>
+      api.post('/api/v1/notifications/messages/shipment', body: {'trackingCode': trackingCode, 'body': body});
 }

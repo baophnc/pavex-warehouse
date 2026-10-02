@@ -46,6 +46,8 @@ class ApiClient {
 
   Future<dynamic> put(String path, {Object? body}) => _send('PUT', path, body: body);
 
+  Future<dynamic> patch(String path, {Object? body}) => _send('PATCH', path, body: body);
+
   /// Calls that must not carry (or refresh) a user token, such as login.
   Future<dynamic> postAnonymous(String path, Object body) =>
       _send('POST', path, body: body, authenticated: false);

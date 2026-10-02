@@ -633,3 +633,81 @@ class LocationBatchResult {
   final int accepted;
   final String tripStatus;
 }
+
+/// One notice in the worker's inbox: a job given or taken back, an approval waiting, or a message.
+class AppNotification {
+  AppNotification({
+    required this.id,
+    required this.code,
+    required this.severity,
+    required this.title,
+    required this.body,
+    required this.isRead,
+    required this.createdAt,
+    required this.senderUserId,
+  });
+
+  factory AppNotification.fromJson(Map<String, dynamic> json) => AppNotification(
+        id: _str(json['id']),
+        code: _str(json['code']),
+        severity: _str(json['severity']),
+        title: _str(json['title']),
+        body: _str(json['body']),
+        isRead: json['isRead'] == true,
+        createdAt: _date(json['createdAt']) ?? DateTime.now(),
+        senderUserId: _opt(json['senderUserId']),
+      );
+
+  final String id;
+  final String code;
+  final String severity;
+  final String title;
+  final String body;
+  final bool isRead;
+  final DateTime createdAt;
+  final String? senderUserId;
+
+  /// A message a person wrote, rather than an automatic notice.
+  bool get isMessage => senderUserId != null;
+
+  AppNotification read() => AppNotification(
+        id: id, code: code, severity: severity, title: title, body: body,
+        isRead: true, createdAt: createdAt, senderUserId: senderUserId,
+      );
+}
+
+class NotificationPage {
+  NotificationPage({required this.items, required this.nextCursor, required this.unreadCount});
+
+  factory NotificationPage.fromJson(Map<String, dynamic> json) => NotificationPage(
+        items: _list(json['items'], AppNotification.fromJson),
+        nextCursor: _opt(json['nextCursor']),
+        unreadCount: _int(json['unreadCount']),
+      );
+
+  final List<AppNotification> items;
+  final String? nextCursor;
+  final int unreadCount;
+}
+
+/// What the signed-in worker may send: hub audiences at their hubs, and messages to shops.
+class MessageOptions {
+  MessageOptions({required this.hubIds, required this.audiences, required this.canMessageShops});
+
+  factory MessageOptions.fromJson(Map<String, dynamic> json) => MessageOptions(
+        hubIds: (json['hubIds'] as List? ?? const []).map((value) => '$value').toList(),
+        audiences: (json['audiences'] as List? ?? const []).map((value) => '$value').toList(),
+        canMessageShops: json['canMessageShops'] == true,
+      );
+
+  final List<String> hubIds;
+  final List<String> audiences;
+  final bool canMessageShops;
+
+  static const audienceLabels = {
+    'HUB_STAFF': 'Nhân viên bưu cục',
+    'HUB_COURIERS': 'Bưu tá',
+    'HUB_DRIVERS': 'Tài xế trung chuyển',
+    'HUB_EVERYONE': 'Tất cả mọi người ở bưu cục',
+  };
+}

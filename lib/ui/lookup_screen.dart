@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../app.dart';
 import '../core/format.dart';
 import '../data/models.dart';
+import 'notifications_screen.dart';
 import 'theme.dart';
 import 'widgets.dart';
 
@@ -69,7 +70,16 @@ class _LookupScreenState extends State<LookupScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(title: Text(widget.code, style: const TextStyle(fontFamily: 'monospace'))),
+        appBar: AppBar(
+          title: Text(widget.code, style: const TextStyle(fontFamily: 'monospace')),
+          actions: [
+            IconButton(
+              tooltip: 'Nhắn shop',
+              icon: const Icon(Icons.chat_outlined),
+              onPressed: () => messageShop(context, widget.code.split('-').take(1).join()),
+            ),
+          ],
+        ),
         body: RefreshIndicator(
           onRefresh: _refresh,
           child: FutureBuilder<LookupResult>(

@@ -6,6 +6,7 @@ import '../core/session.dart';
 import '../data/models.dart';
 import '../data/repository.dart';
 import 'account_screen.dart';
+import 'notifications_screen.dart';
 import 'shell.dart';
 import 'theme.dart';
 import 'widgets.dart';
@@ -89,6 +90,7 @@ class _HomeScreenState extends State<HomeScreen> {
       appBar: AppBar(
         title: const Text('Hôm nay'),
         actions: [
+          const NotificationBell(),
           IconButton(
             tooltip: 'Tài khoản',
             icon: const Icon(Icons.account_circle_outlined),

@@ -214,6 +214,12 @@ class _ScannerScreenState extends State<ScannerScreen> {
       final trip = await session.repository.startTripFromScan();
       final tripId = trip?.tripId;
       if (trip == null || tripId == null) return;
+      if ((await session.repository.fleetConsent()).required) {
+        if (mounted) {
+          showMessage(context, 'Đã bắt đầu chuyến ${trip.fromHubCode} → ${trip.toHubCode}. Mở tab Chuyến và đồng ý chia sẻ vị trí để bưu cục thấy xe.');
+        }
+        return;
+      }
       await session.trips.resume(tripId);
       if (mounted) showMessage(context, 'Đã bắt đầu chuyến ${trip.fromHubCode} → ${trip.toHubCode}. Đang gửi vị trí xe.');
     } catch (error) {

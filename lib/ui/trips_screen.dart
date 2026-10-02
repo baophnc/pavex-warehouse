@@ -13,7 +13,7 @@ String tripErrorText(Object error) {
   if (error is ApiException) {
     switch (error.code) {
       case 'consent_required':
-        return 'Bạn cần đồng ý chia sẻ vị trí ở tab Chuyến trước khi chạy.';
+        return 'Bạn cần đồng ý chia sẻ vị trí ở tab Chuyến thì app mới gửi được vị trí xe.';
       case 'another_trip_in_progress':
         return 'Bạn đang có chuyến khác chưa kết thúc. Bấm “Đã tới” cho chuyến đó trước.';
       case 'trip_not_assigned':
@@ -50,15 +50,17 @@ class _TripsScreenState extends State<TripsScreen> {
   Future<(FleetConsent, List<DriverTrip>)> _load() async {
     final session = AppScope.read(context);
     final results = await Future.wait([session.repository.fleetConsent(), session.repository.myTrips()]);
+    final consent = results[0] as FleetConsent;
     final trips = results[1] as List<DriverTrip>;
-    // Recording survives app restarts: resume it for the trip the server still has running.
+    // Recording survives app restarts: resume it for the trip the server still has running, but
+    // only once the driver agreed to share the truck's position.
     final running = trips.where((trip) => trip.inProgress && trip.tripId != null).firstOrNull;
-    if (running != null) {
+    if (running != null && !consent.required) {
       await session.trips.resume(running.tripId!);
     } else if (session.trips.active) {
       await session.trips.stop();
     }
-    return (results[0] as FleetConsent, trips);
+    return (consent, trips);
   }
 
   Future<void> _refresh() async {

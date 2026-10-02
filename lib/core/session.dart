@@ -191,6 +191,7 @@ class SessionController extends ChangeNotifier implements TokenProvider {
   /// A driver who reopens the app mid-trip keeps sending positions without opening the trips tab.
   Future<void> resumeRunningTrip() async {
     try {
+      if ((await repository.fleetConsent()).required) return;
       final running = (await repository.myTrips()).where((trip) => trip.inProgress && trip.tripId != null).firstOrNull;
       if (running != null) await trips.resume(running.tripId!);
     } catch (_) {

@@ -119,6 +119,17 @@ class TripTracker extends ChangeNotifier {
   }
 
   Future<bool> _ensurePermission() async {
+    try {
+      return await _askPermission();
+    } catch (_) {
+      // Browsers without the Permissions API, or a page not on https:// or localhost.
+      if (!kIsWeb) rethrow;
+      problem = TrackingProblem.denied;
+      return false;
+    }
+  }
+
+  Future<bool> _askPermission() async {
     if (!await Geolocator.isLocationServiceEnabled()) {
       problem = TrackingProblem.serviceOff;
       return false;
@@ -135,6 +146,7 @@ class TripTracker extends ChangeNotifier {
 
   /// Opens the system settings when the driver has to allow location there.
   Future<void> openSettings() async {
+    if (kIsWeb) return; // The site permission lives in the browser's address bar.
     if (problem == TrackingProblem.serviceOff) {
       await Geolocator.openLocationSettings();
     } else {
@@ -143,6 +155,8 @@ class TripTracker extends ChangeNotifier {
   }
 
   LocationSettings _settings() {
+    // In a phone's browser defaultTargetPlatform is still android/iOS, but only the plain settings apply.
+    if (kIsWeb) return const LocationSettings(accuracy: LocationAccuracy.high, distanceFilter: 30);
     if (defaultTargetPlatform == TargetPlatform.android) {
       return AndroidSettings(
         accuracy: LocationAccuracy.high,

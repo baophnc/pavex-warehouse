@@ -1,4 +1,6 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../app.dart';
 import 'password_screens.dart';
@@ -145,6 +147,10 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     const SizedBox(height: 8),
                     TextButton(onPressed: _busy ? null : _forgotPassword, child: const Text('Quên mật khẩu?')),
+                    if (kIsWeb) ...[
+                      const SizedBox(height: 16),
+                      const WebBuildNote(),
+                    ],
                     // Release builds talk only to the HTTPS address they were built with.
                     if (config.editable) ...[
                       const SizedBox(height: 8),
@@ -159,6 +165,40 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The browser build is for trying the app out: say what only the phone app does.
+class WebBuildNote extends StatelessWidget {
+  const WebBuildNote({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final session = AppScope.session(context);
+    return Card(
+      color: scheme.secondaryContainer,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 12, 8, 4),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Đây là bản web để dùng thử. Quét mã bằng camera chỉ chạy khi trình duyệt cho phép camera; '
+              'gửi vị trí chuyến xe chỉ chạy khi tab đang mở. Làm việc thật hãy dùng app trên điện thoại.'
+              '${session.storageAvailable ? '' : ' Trình duyệt này không lưu được phiên đăng nhập (trang không mở qua '
+                  'https:// hoặc localhost), tải lại trang sẽ phải đăng nhập lại.'}',
+              style: TextStyle(color: scheme.onSecondaryContainer),
+            ),
+            TextButton.icon(
+              onPressed: () => launchUrl(Uri.base.resolve('download/'), webOnlyWindowName: '_blank'),
+              icon: const Icon(Icons.android, size: 18),
+              label: const Text('Tải app Android'),
+            ),
+          ],
         ),
       ),
     );

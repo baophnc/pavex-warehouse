@@ -40,6 +40,60 @@ tiên. Rút cáp ra cắm lại thì chạy lại lệnh `adb reverse`.
 Đặt `OPERATIONS_SHIFT_FULL_DAY=true` trong `.env` của backend: ai cũng có ca 00:00–24:00 mỗi ngày nên vào ca và
 nhận việc lúc nào cũng được. Tài khoản test nằm trong `scripts/seed-mini/README.md` của backend.
 
+## Docker (bản web + APK Android)
+
+`Dockerfile` ở gốc repo build trong một image: bản web của app, tệp APK Android và trang tải về. Image chạy nginx
+không quyền root, cổng **8080** trong container:
+
+| Đường dẫn | Nội dung |
+|---|---|
+| `/` | Bản web (`flutter build web`) để dùng thử trên trình duyệt |
+| `/download/` | Trang tải APK: liên kết, mã QR, phiên bản, cách cài (cho phép cài từ nguồn không xác định) |
+| `/download/pavex-field.apk` | Tệp APK |
+| `/healthz` | `200 ok` cho health check |
+
+```bash
+docker build -t pavex/field-app .
+docker run --rm -p 8090:8080 pavex/field-app
+```
+
+Mở `http://localhost:8090` (bản web), `http://<IP LAN của máy>:8090/download/` trên điện thoại để quét mã và cài
+APK. Thường thì `docker compose up` trong repo backend build và chạy image này cùng cả hệ thống.
+
+Tham số build (`--build-arg`):
+
+| Tham số | Mặc định | Ý nghĩa |
+|---|---|---|
+| `PAVEX_API_BASE_URL` | `http://localhost:8080` | API gateway mà bản web (và APK) gọi; staging: `https://api.<domain>` |
+| `APK_API_BASE_URL` | = `PAVEX_API_BASE_URL` | Địa chỉ gắn vào APK nếu điện thoại vào gateway bằng địa chỉ khác trình duyệt, ví dụ `http://192.168.1.10:8080` |
+| `APK_MODE` | `debug` | `debug`: cho phép HTTP tới gateway trong LAN/localhost, đổi được máy chủ ở màn đăng nhập. `release`: bản phát hành, cần khoá ký (dưới đây) và địa chỉ `https://` |
+| `ANDROID_SIGNING_ALIAS` | `upload` | Alias của khoá trong kho khoá (chỉ cho `release`) |
+
+- Bản web là bản release nhưng được dùng `http://` (trình duyệt tự chặn gọi HTTP từ trang HTTPS). Gateway phải cho
+  phép origin của trang web qua CORS: `GATEWAY_ALLOWED_ORIGIN` của backend nhận nhiều origin cách nhau bằng dấu phẩy,
+  ví dụ `http://localhost:3000,http://localhost:8090`.
+- Camera (quét mã), vị trí và lưu phiên đăng nhập trên trình duyệt chỉ chạy khi trang mở qua `https://` hoặc
+  `localhost`; mở bằng `http://<IP>` thì app vẫn chạy, nhập mã bằng tay và tải lại trang phải đăng nhập lại. Vị trí
+  chuyến xe chỉ gửi khi tab đang mở: chạy chuyến thật phải dùng app trên điện thoại.
+- `APK_MODE=release` lấy khoá ký từ **build secret**, không bao giờ từ build arg hay layer của image. Thiếu khoá
+  (hoặc địa chỉ không phải `https://`) thì image vẫn build, chỉ không có APK và trang `/download/` ghi rõ lý do:
+
+  ```bash
+  printf '%s' '<mật khẩu kho khoá>' > /tmp/pavex-store-pw
+  docker build -t pavex/field-app \
+    --build-arg APK_MODE=release --build-arg PAVEX_API_BASE_URL=https://api.pavex.vn \
+    --secret id=android_keystore,src=$HOME/keys/pavex-field-upload.jks \
+    --secret id=android_keystore_password,src=/tmp/pavex-store-pw .
+  ```
+
+  Mật khẩu khoá khác mật khẩu kho khoá thì thêm `--secret id=android_key_password,src=…`.
+- Image build ở `linux/amd64` (aapt2 của Android và Flutter SDK cho Linux chỉ có bản x86_64). Trên Mac Apple
+  Silicon bước build chạy giả lập nên chậm (lần đầu vài chục phút); bật *Use Rosetta for x86_64/amd64 emulation* trong
+  Docker Desktop để nhanh hơn. Image chạy (nginx) là bản gốc của máy. Pub và Gradle được giữ trong cache của BuildKit.
+- APK debug được ký bằng khoá debug lưu trong cache BuildKit của máy build; APK build trên máy khác (hoặc sau khi xoá
+  cache) có khoá khác, phải gỡ bản cũ trên điện thoại trước khi cài.
+- iOS không build được trong Docker: dùng Xcode như mục [Bản phát hành](#bản-phát-hành).
+
 ## Luồng quét mã
 
 Người dùng chọn việc đang làm (Lấy hàng, Nhập kho, Lên xe, Xuất giao, Kiểm kho, Tra cứu) rồi quét mã QR trên nhãn kiện

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../app.dart';
@@ -229,17 +230,21 @@ class _TrackerBanner extends StatelessWidget {
     if (!tracker.active) return const SizedBox.shrink();
     final scheme = Theme.of(context).colorScheme;
     if (tracker.problem != TrackingProblem.none) {
-      final message = switch (tracker.problem) {
-        TrackingProblem.serviceOff => 'Định vị của điện thoại đang tắt. Bật lên để gửi vị trí xe.',
-        TrackingProblem.deniedForever => 'App chưa được phép dùng vị trí. Mở Cài đặt và cho phép vị trí.',
-        _ => 'App chưa được phép dùng vị trí. Cho phép để gửi vị trí xe.',
-      };
+      // A browser has no settings screen to open; the site permission is in the address bar.
+      final message = kIsWeb
+          ? 'Trình duyệt chưa cho phép vị trí (cần cho phép vị trí cho trang này, và trang phải mở qua https:// '
+              'hoặc localhost). Chạy chuyến thật hãy dùng app trên điện thoại.'
+          : switch (tracker.problem) {
+              TrackingProblem.serviceOff => 'Định vị của điện thoại đang tắt. Bật lên để gửi vị trí xe.',
+              TrackingProblem.deniedForever => 'App chưa được phép dùng vị trí. Mở Cài đặt và cho phép vị trí.',
+              _ => 'App chưa được phép dùng vị trí. Cho phép để gửi vị trí xe.',
+            };
       return Card(
         color: scheme.errorContainer,
         child: ListTile(
           leading: Icon(Icons.location_off, color: scheme.onErrorContainer),
           title: Text(message, style: TextStyle(color: scheme.onErrorContainer)),
-          trailing: TextButton(onPressed: tracker.openSettings, child: const Text('Cài đặt')),
+          trailing: kIsWeb ? null : TextButton(onPressed: tracker.openSettings, child: const Text('Cài đặt')),
         ),
       );
     }
@@ -249,7 +254,8 @@ class _TrackerBanner extends StatelessWidget {
         title: const Text('Đang gửi vị trí xe'),
         subtitle: Text(
           'Gửi lần cuối: ${tracker.lastSentAt == null ? 'chưa' : timeOf(tracker.lastSentAt)}'
-          '${tracker.pending > 0 ? ' · ${tracker.pending} điểm chờ gửi' : ''}',
+          '${tracker.pending > 0 ? ' · ${tracker.pending} điểm chờ gửi' : ''}'
+          '${kIsWeb ? '\nBản web chỉ gửi vị trí khi tab này đang mở; đóng tab hoặc khoá máy là dừng gửi.' : ''}',
         ),
       ),
     );

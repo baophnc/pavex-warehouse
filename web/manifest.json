@@ -1,11 +1,11 @@
 {
-    "name": "pavex_warehouse",
-    "short_name": "pavex_warehouse",
+    "name": "Pavex Hiện trường",
+    "short_name": "Pavex",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "description": "Ứng dụng cho bưu tá, nhân viên bưu cục và tài xế trung chuyển của Pavex.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
@@ -299,7 +300,10 @@ class _ScannerScreenState extends State<ScannerScreen> {
                     alignment: Alignment.center,
                     padding: const EdgeInsets.all(24),
                     child: const Text(
-                      'Không mở được camera. Hãy cấp quyền camera cho ứng dụng hoặc nhập mã bằng tay.',
+                      kIsWeb
+                          ? 'Trình duyệt không mở được camera. Hãy cho phép camera cho trang này (trang phải mở qua '
+                              'https:// hoặc localhost) hoặc bấm biểu tượng bàn phím để nhập mã.'
+                          : 'Không mở được camera. Hãy cấp quyền camera cho ứng dụng hoặc nhập mã bằng tay.',
                       textAlign: TextAlign.center,
                       style: TextStyle(color: Colors.white),
                     ),

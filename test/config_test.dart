@@ -30,6 +30,20 @@ void main() {
       }
     });
 
+    test('the web build may also use http://, the browser guards mixed content', () async {
+      expect(AppConfig.releaseBaseUrlError('http://localhost:8080', web: true), isNull);
+      expect(AppConfig.releaseBaseUrlError('https://api.pavex.vn', web: true), isNull);
+      expect(AppConfig.releaseBaseUrlError('', web: true), contains('PAVEX_API_BASE_URL'));
+      for (final bad in ['localhost:8080', 'ftp://api.pavex.vn', 'http://user:secret@api.pavex.vn', 'http://api.pavex.vn#x']) {
+        expect(AppConfig.releaseBaseUrlError(bad, web: true), contains('http://'), reason: bad);
+      }
+      SharedPreferences.setMockInitialValues({});
+      final config = await AppConfig.load(release: true, buildBaseUrl: 'http://localhost:8080/', web: true);
+      expect(config.error, isNull);
+      expect(config.baseUrl, 'http://localhost:8080');
+      expect(config.editable, isFalse);
+    });
+
     test('a release build uses only the build-time address, never a saved one', () async {
       SharedPreferences.setMockInitialValues({'pavex.apiBaseUrl': 'http://192.168.1.10:8080'});
       final config = await AppConfig.load(release: true, buildBaseUrl: 'https://api.pavex.vn/');

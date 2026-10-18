@@ -1,4 +1,4 @@
-# Pavex Bưu cục (pavex-warehouse)
+# Pavex Hiện trường (pavex-warehouse)
 
 Ứng dụng di động (Flutter) cho nhân sự hiện trường của Pavex:
 
@@ -16,7 +16,8 @@ flutter pub get
 flutter run
 ```
 
-Ở màn đăng nhập, bấm **Máy chủ** để trỏ tới API gateway:
+Bản debug/profile: ở màn đăng nhập, bấm **Máy chủ** để trỏ tới API gateway (bản phát hành không có nút này, xem
+[Bản phát hành](#bản-phát-hành)):
 
 - iOS simulator / macOS: `http://localhost:8080`
 - Android emulator: `http://10.0.2.2:8080`
@@ -61,3 +62,75 @@ việc được giao và chặng xe. Quét mã vận đơn sẽ áp dụng cho m
 flutter analyze
 flutter test
 ```
+
+## Bản phát hành
+
+Mã ứng dụng hiện là `vn.pavex.field` (Android `applicationId`, iOS/macOS bundle id; test iOS là
+`vn.pavex.field.RunnerTests`), tên hiển thị **Pavex Hiện trường**. Đây là mã tạm cho tới khi chốt mã chính thức: đổi
+được bất cứ lúc nào trước lần đầu đưa lên Google Play / App Store, sau đó đổi mã là thành một ứng dụng khác.
+
+### Máy chủ trong bản phát hành
+
+- Bản phát hành **chỉ** dùng địa chỉ gắn lúc build: `--dart-define=PAVEX_API_BASE_URL=https://…`. Không có nút
+  **Máy chủ**, địa chỉ đã lưu từ bản debug bị bỏ qua.
+- Địa chỉ phải bắt đầu bằng `https://` (không chứa tài khoản, `?` hay `#`). Thiếu hoặc sai thì app mở ra màn
+  "Không thể kết nối máy chủ" thay vì màn đăng nhập.
+- Địa chỉ là URL công khai của API gateway (cổng 8080 của backend đặt sau HTTPS, ví dụ `https://api.pavex.vn`), do
+  người vận hành backend cung cấp; xem mục "Triển khai thật" trong `docs/PAVEX-TAI-LIEU-TONG-HOP.md` của backend.
+- Mạng: Android bản release có `usesCleartextTraffic="false"` (bản debug/profile bật lại HTTP qua
+  `android/app/src/debug|profile/AndroidManifest.xml`); iOS chỉ giữ `NSAllowsLocalNetworking` (localhost và mạng LAN
+  cho lúc phát triển). Các thiết lập này áp cho mạng của hệ điều hành; kết nối API của app (gói `http`, `dart:io`)
+  không đi qua chúng, nên quy tắc `https://` ở trên mới là chốt chặn chính.
+
+### Android: tạo khoá ký (làm một lần)
+
+Bản release **không** ký bằng khoá debug. Thiếu `android/key.properties` thì `flutter build` bản release dừng với
+thông báo "Release build needs a signing key"; bản debug/profile không bị ảnh hưởng.
+
+```bash
+keytool -genkeypair -v -keystore ~/keys/pavex-field-upload.jks -storetype JKS \
+  -keyalg RSA -keysize 2048 -validity 10000 -alias upload
+```
+
+Sao chép `android/key.properties.example` thành `android/key.properties` rồi điền:
+
+```properties
+storeFile=/Users/<bạn>/keys/pavex-field-upload.jks
+storePassword=<mật khẩu kho khoá>
+keyAlias=upload
+keyPassword=<mật khẩu khoá>
+```
+
+`storeFile` là đường dẫn tuyệt đối hoặc tính từ thư mục `android/`. `key.properties`, `*.jks`, `*.keystore` đã nằm
+trong `.gitignore`: **không** commit chúng. Cất kho khoá và mật khẩu ở nơi an toàn (trình quản lý mật khẩu của công
+ty); mất khoá upload thì phải nhờ Google Play đặt lại. Nên bật *Play App Signing* khi tạo ứng dụng trên Play Console.
+
+### Android: build
+
+Tăng `version` trong `pubspec.yaml` (ví dụ `1.0.1+2`: số sau `+` là `versionCode`, phải tăng mỗi lần nộp), rồi:
+
+```bash
+flutter build appbundle --release --dart-define=PAVEX_API_BASE_URL=https://api.pavex.vn
+```
+
+Tệp nộp Google Play: `build/app/outputs/bundle/release/app-release.aab`. Cần APK để cài thẳng lên máy thì dùng
+`flutter build apk --release --dart-define=…` (ra `build/app/outputs/flutter-apk/app-release.apk`).
+
+### iOS: ký và build
+
+Việc ký để Xcode lo, không có gì về ký trong repo:
+
+1. Mở `ios/Runner.xcworkspace`, chọn target **Runner** → *Signing & Capabilities* → bật *Automatically manage
+   signing*, chọn *Team* của tài khoản Apple Developer công ty. Bundle id `vn.pavex.field` phải được đăng ký trên
+   App Store Connect (Xcode tự tạo khi ký tự động).
+2. Build:
+
+   ```bash
+   flutter build ipa --release --dart-define=PAVEX_API_BASE_URL=https://api.pavex.vn
+   ```
+
+3. Tải `build/ios/ipa/*.ipa` lên App Store Connect bằng ứng dụng Transporter (hoặc mở
+   `build/ios/archive/Runner.xcarchive` trong Xcode → *Distribute App*), rồi phát qua TestFlight.
+
+App dùng vị trí nền (chuyến trung chuyển), camera và thư viện ảnh; lời giải thích quyền nằm trong
+`ios/Runner/Info.plist`, khi nộp App Store cần khai báo đúng mục đích này.

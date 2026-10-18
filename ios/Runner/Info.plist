@@ -7,7 +7,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Pavex Bưu cục</string>
+	<string>Pavex Hiện trường</string>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>Kết nối tới máy chủ Pavex chạy trong mạng nội bộ khi thử nghiệm.</string>
 	<key>NSCameraUsageDescription</key>
@@ -27,11 +27,10 @@
 		<string>tel</string>
 		<string>https</string>
 	</array>
-	<!-- Plain HTTP is allowed for development gateways on the local network. -->
+	<!-- HTTPS only, except localhost and LAN addresses for a development gateway.
+	     Release builds refuse a non-HTTPS server address in the app itself (lib/core/config.dart). -->
 	<key>NSAppTransportSecurity</key>
 	<dict>
-		<key>NSAllowsArbitraryLoads</key>
-		<true/>
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>

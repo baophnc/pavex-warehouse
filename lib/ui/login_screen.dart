@@ -101,7 +101,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ),
                     const SizedBox(height: 20),
-                    Text('Pavex Bưu cục', style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w900)),
+                    Text('Pavex Hiện trường', style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w900)),
                     const SizedBox(height: 6),
                     Text(
                       'Ứng dụng cho bưu tá, nhân viên bưu cục và tài xế trung chuyển.',
@@ -145,12 +145,15 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     const SizedBox(height: 8),
                     TextButton(onPressed: _busy ? null : _forgotPassword, child: const Text('Quên mật khẩu?')),
-                    const SizedBox(height: 8),
-                    TextButton.icon(
-                      onPressed: _editServer,
-                      icon: const Icon(Icons.dns_outlined, size: 18),
-                      label: Text('Máy chủ: ${config.baseUrl}', overflow: TextOverflow.ellipsis),
-                    ),
+                    // Release builds talk only to the HTTPS address they were built with.
+                    if (config.editable) ...[
+                      const SizedBox(height: 8),
+                      TextButton.icon(
+                        onPressed: _editServer,
+                        icon: const Icon(Icons.dns_outlined, size: 18),
+                        label: Text('Máy chủ: ${config.baseUrl}', overflow: TextOverflow.ellipsis),
+                      ),
+                    ],
                   ],
                 ),
               ),

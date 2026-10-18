@@ -7,11 +7,11 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <uses-feature android:name="android.hardware.camera" android:required="false"/>
-    <!-- usesCleartextTraffic lets the app reach a development gateway over plain HTTP;
-         production builds should point at an HTTPS gateway. -->
+    <!-- HTTPS only. Debug and profile builds re-enable plain HTTP for a local gateway
+         in src/debug and src/profile. -->
     <application
-        android:label="Pavex Bưu cục"
-        android:usesCleartextTraffic="true"
+        android:label="Pavex Hiện trường"
+        android:usesCleartextTraffic="false"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

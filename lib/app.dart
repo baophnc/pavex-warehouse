@@ -38,7 +38,7 @@ class PavexWarehouseApp extends StatelessWidget {
         session: session,
         config: config,
         child: MaterialApp(
-          title: 'Pavex Bưu cục',
+          title: 'Pavex Hiện trường',
           debugShowCheckedModeBanner: false,
           theme: pavexTheme(Brightness.light),
           darkTheme: pavexTheme(Brightness.dark),

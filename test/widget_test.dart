@@ -111,7 +111,8 @@ void main() {
 
     await tester.pumpWidget(PavexWarehouseApp(session: session, config: config));
 
-    expect(find.text('Pavex Bưu cục'), findsOneWidget);
+    expect(find.text('Pavex Hiện trường'), findsOneWidget);
+    expect(find.textContaining('Máy chủ:'), findsOneWidget);
     expect(find.text('Đăng nhập'), findsOneWidget);
     expect(find.byType(TextFormField), findsNWidgets(2));
   });

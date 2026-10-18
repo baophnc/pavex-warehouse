@@ -1,0 +1,6 @@
+# Copy to android/key.properties (never commit it) and fill in your upload keystore.
+# storeFile is relative to the android/ folder, or an absolute path.
+storeFile=/Users/you/keys/pavex-field-upload.jks
+storePassword=change-me
+keyAlias=upload
+keyPassword=change-me

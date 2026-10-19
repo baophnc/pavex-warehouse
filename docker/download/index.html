@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tải Pavex Hiện trường</title>
+  <style>
+    :root { color-scheme: light dark; --fg: #1b1f24; --muted: #5d6670; --bg: #f5f7fa; --card: #fff; --accent: #0b5cad; --warn-bg: #fff4d6; --warn-fg: #6b4a00; }
+    @media (prefers-color-scheme: dark) {
+      :root { --fg: #e8ebef; --muted: #a2abb5; --bg: #12161b; --card: #1c2128; --accent: #6aaefc; --warn-bg: #3a2f10; --warn-fg: #f5d98a; }
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color: var(--fg); background: var(--bg); }
+    main { max-width: 560px; margin: 0 auto; padding: 24px 16px 48px; }
+    h1 { font-size: 1.6rem; margin: 0 0 4px; }
+    .muted { color: var(--muted); }
+    .card { background: var(--card); border-radius: 16px; padding: 20px; margin-top: 16px; }
+    .button { display: block; text-align: center; background: var(--accent); color: #fff; text-decoration: none; font-weight: 700; padding: 14px; border-radius: 12px; }
+    #qr { display: flex; justify-content: center; margin: 8px 0; }
+    #qr img { width: 220px; height: 220px; image-rendering: pixelated; background: #fff; padding: 8px; border-radius: 8px; }
+    .warn { background: var(--warn-bg); color: var(--warn-fg); border-radius: 12px; padding: 12px 14px; margin-top: 12px; }
+    ol { padding-left: 1.3em; margin: 8px 0 0; }
+    li { margin-bottom: 6px; }
+    code { word-break: break-all; }
+    dl { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; margin: 0; }
+    dt { color: var(--muted); }
+    dd { margin: 0; word-break: break-all; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>Pavex Hiện trường</h1>
+  <div class="muted">Ứng dụng Android cho bưu tá, nhân viên bưu cục và tài xế trung chuyển.</div>
+
+  <div class="card" id="apk">
+    <a class="button" id="link" href="pavex-field.apk" download>Tải tệp cài đặt (APK)</a>
+    <p class="muted" style="text-align:center;margin:12px 0 0">hoặc quét mã này bằng camera điện thoại Android</p>
+    <div id="qr"></div>
+    <div class="muted" style="text-align:center"><code id="url"></code></div>
+    <div class="warn" id="localhost" hidden>
+      Bạn đang mở trang này bằng <b>localhost</b>, điện thoại không vào được địa chỉ này. Hãy mở
+      <code>http://&lt;IP mạng LAN của máy này&gt;:<span id="port"></span>/download/</code> rồi quét lại mã
+      (điện thoại phải cùng mạng Wi‑Fi).
+    </div>
+  </div>
+
+  <div class="card warn" id="noapk" hidden></div>
+
+  <div class="card">
+    <b>Cài đặt</b>
+    <ol>
+      <li>Trên điện thoại Android, quét mã hoặc mở liên kết ở trên, tải tệp <code>pavex-field.apk</code>.</li>
+      <li>Mở tệp vừa tải (thanh thông báo hoặc ứng dụng <i>Tệp</i>).</li>
+      <li>Nếu máy báo <i>“Vì lý do bảo mật, điện thoại không được phép cài ứng dụng không rõ nguồn gốc”</i>: bấm
+        <b>Cài đặt</b> → bật <b>Cho phép từ nguồn này</b> cho trình duyệt (Chrome hoặc Tệp), rồi quay lại.</li>
+      <li>Bấm <b>Cài đặt</b>. Nếu Play Protect cảnh báo, chọn <b>Thông tin chi tiết → Vẫn cài đặt</b>.</li>
+      <li>Mở <b>Pavex Hiện trường</b> và đăng nhập bằng email công việc.</li>
+    </ol>
+    <p class="muted" id="debugnote" hidden>
+      Đây là bản thử nghiệm (debug). Ở màn đăng nhập bấm <b>Máy chủ</b> để đổi địa chỉ API gateway nếu cần:
+      điện thoại thật dùng <code>http://&lt;IP máy chạy backend&gt;:8080</code>, máy ảo Android dùng
+      <code>http://10.0.2.2:8080</code>. Cài đè lên bản cũ mà báo <i>“Ứng dụng chưa được cài đặt”</i> thì gỡ bản cũ
+      trước (bản build trên máy khác được ký bằng khoá khác).
+    </p>
+  </div>
+
+  <div class="card">
+    <b>Thông tin bản build</b>
+    <dl style="margin-top:8px">
+      <dt>Phiên bản</dt><dd id="version">…</dd>
+      <dt>Loại</dt><dd id="mode">…</dd>
+      <dt>Máy chủ</dt><dd id="api">…</dd>
+      <dt>Dung lượng</dt><dd id="size">…</dd>
+      <dt>SHA-256</dt><dd id="sha"><code>…</code></dd>
+    </dl>
+    <p class="muted" style="margin-bottom:0">Dùng thử trên trình duyệt: <a href="/">bản web</a>.</p>
+  </div>
+</main>
+<script src="qrcode.js"></script>
+<script>
+  (function () {
+    var apkUrl = new URL('pavex-field.apk', location.href).href;
+    var host = location.hostname;
+    if (host === 'localhost' || host === '127.0.0.1' || host === '[::1]' || host.endsWith('.localhost')) {
+      document.getElementById('localhost').hidden = false;
+      document.getElementById('port').textContent = location.port || (location.protocol === 'https:' ? '443' : '80');
+    }
+    document.getElementById('url').textContent = apkUrl;
+    try {
+      var qr = qrcode(0, 'M');
+      qr.addData(apkUrl);
+      qr.make();
+      document.getElementById('qr').innerHTML = qr.createImgTag(6, 0, 'Mã QR tải APK');
+    } catch (e) {
+      document.getElementById('qr').textContent = 'Không tạo được mã QR.';
+    }
+
+    fetch('build.json', { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (info) {
+      document.getElementById('version').textContent = info.version;
+      document.getElementById('mode').textContent = info.apkMode === 'release' ? 'Phát hành (release)' : 'Thử nghiệm (debug)';
+      document.getElementById('api').textContent = info.apkApiBaseUrl || '(chưa gắn)';
+      document.getElementById('debugnote').hidden = info.apkMode === 'release';
+      if (!info.apk) {
+        document.getElementById('apk').hidden = true;
+        var box = document.getElementById('noapk');
+        box.hidden = false;
+        box.textContent = 'Bản build này không có tệp APK: ' + info.apkNote;
+        document.getElementById('size').textContent = '—';
+        document.getElementById('sha').textContent = '—';
+        return;
+      }
+      document.getElementById('size').textContent = (info.apkBytes / 1048576).toFixed(1) + ' MB';
+      document.getElementById('sha').firstChild.textContent = info.apkSha256;
+    }).catch(function () {});
+  })();
+</script>
+</body>
+</html>

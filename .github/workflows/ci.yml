@@ -24,3 +24,37 @@ jobs:
       - run: flutter pub get
       - run: flutter analyze
       - run: flutter test
+
+  docker:
+    name: Docker image (web + debug APK)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      # The Android SDK image and the Flutter SDK need more room than the runner has free by default.
+      - name: Free disk space
+        run: sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /opt/hostedtoolcache/CodeQL && df -h /
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          load: true
+          tags: pavex/field-app:ci
+          build-args: |
+            PAVEX_API_BASE_URL=http://localhost:8080
+            APK_MODE=debug
+          cache-from: type=gha,scope=field-app
+          cache-to: type=gha,scope=field-app,mode=max
+      - name: Smoke test
+        run: |
+          docker run -d --name field-app -p 8090:8080 pavex/field-app:ci
+          for i in $(seq 1 30); do curl -fsS http://localhost:8090/healthz && break; sleep 1; done
+          curl -fsS http://localhost:8090/ | grep -q flutter_bootstrap.js
+          curl -fsS http://localhost:8090/download/ | grep -q pavex-field.apk
+          curl -fsS http://localhost:8090/download/build.json | tee /dev/stderr | grep -q '"apk":true'
+          curl -fsS -o app.apk http://localhost:8090/download/pavex-field.apk
+          unzip -l app.apk AndroidManifest.xml classes.dex
+          test "$(docker inspect -f '{{.Config.User}}' pavex/field-app:ci)" != "root"
+      - name: Container logs
+        if: failure()
+        run: docker logs field-app || true

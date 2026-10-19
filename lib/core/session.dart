@@ -66,8 +66,10 @@ class SessionController extends ChangeNotifier implements TokenProvider {
 
   /// On macOS the data protection keychain needs a signing team and a keychain-access-groups
   /// entitlement; a locally signed debug build has neither, so use the login keychain there.
+  /// In a browser the tokens stay in this tab's session storage, not across tabs and restarts.
   static const _defaultStorage = FlutterSecureStorage(
     mOptions: MacOsOptions(usesDataProtectionKeychain: false),
+    webOptions: WebOptions(useSessionStorage: true),
   );
 
   static const _accessKey = 'pavex.accessToken';
@@ -96,13 +98,18 @@ class SessionController extends ChangeNotifier implements TokenProvider {
 
   bool get signedIn => user != null;
 
+  /// False when the browser refuses encrypted storage (it needs WebCrypto, which only https:// and
+  /// localhost pages get): the tokens then live in memory and reloading the page signs the worker out.
+  bool storageAvailable = true;
+  final _memory = <String, String>{};
+
   @override
   String? get accessToken => _accessToken;
 
   Future<void> restore() async {
-    _accessToken = await _storage.read(key: _accessKey);
-    _refreshToken = await _storage.read(key: _refreshKey);
-    passwordChangeRequired = await _storage.read(key: _passwordChangeKey) == 'true';
+    _accessToken = await _read(_accessKey);
+    _refreshToken = await _read(_refreshKey);
+    passwordChangeRequired = await _read(_passwordChangeKey) == 'true';
     if (_accessToken == null || _refreshToken == null) return;
     try {
       user = SessionUser.fromToken(_accessToken!);
@@ -204,9 +211,9 @@ class SessionController extends ChangeNotifier implements TokenProvider {
     _refreshToken = tokens.refreshToken;
     user = SessionUser.fromToken(tokens.accessToken);
     passwordChangeRequired = tokens.passwordChangeRequired;
-    await _storage.write(key: _accessKey, value: tokens.accessToken);
-    await _storage.write(key: _refreshKey, value: tokens.refreshToken);
-    await _storage.write(key: _passwordChangeKey, value: '${tokens.passwordChangeRequired}');
+    await _write(_accessKey, tokens.accessToken);
+    await _write(_refreshKey, tokens.refreshToken);
+    await _write(_passwordChangeKey, '${tokens.passwordChangeRequired}');
   }
 
   Future<void> _clear() async {
@@ -218,8 +225,29 @@ class SessionController extends ChangeNotifier implements TokenProvider {
     hubScope = null;
     currentHub = null;
     passwordChangeRequired = false;
-    await _storage.delete(key: _passwordChangeKey);
-    await _storage.delete(key: _accessKey);
-    await _storage.delete(key: _refreshKey);
+    await _delete(_passwordChangeKey);
+    await _delete(_accessKey);
+    await _delete(_refreshKey);
+  }
+
+  Future<String?> _read(String key) => _guardStorage(() => _storage.read(key: key), () => _memory[key]);
+
+  Future<void> _write(String key, String value) =>
+      _guardStorage(() => _storage.write(key: key, value: value), () => _memory[key] = value);
+
+  Future<void> _delete(String key) => _guardStorage(() => _storage.delete(key: key), () => _memory.remove(key));
+
+  /// Phones always have a keychain, so a failure there is a real error. A browser may have no
+  /// WebCrypto (plain http:// from another machine): fall back to memory instead of not starting.
+  Future<T> _guardStorage<T>(Future<T> Function() call, T Function() fallback) async {
+    if (storageAvailable) {
+      try {
+        return await call();
+      } catch (_) {
+        if (!kIsWeb) rethrow;
+        storageAvailable = false;
+      }
+    }
+    return fallback();
   }
 }

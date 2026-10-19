@@ -6,6 +6,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// Debug and profile builds let anyone change it on the login screen, so the same build works on an
 /// emulator, a simulator or a phone on the office Wi‑Fi. A release build only uses the address baked in
 /// with `--dart-define=PAVEX_API_BASE_URL=https://…`, and refuses to start without a valid HTTPS one.
+/// The web build (served by the Docker image) is a release build too, but may use `http://`: the browser
+/// already refuses plain-HTTP calls from a page served over HTTPS.
 class AppConfig {
   AppConfig._(this._prefs, this._baseUrl, {required this.editable, this.error});
 
@@ -23,10 +25,10 @@ class AppConfig {
   String get baseUrl => _baseUrl;
 
   /// [release] and [buildBaseUrl] default to this build's values; tests pass their own.
-  static Future<AppConfig> load({bool release = kReleaseMode, String buildBaseUrl = _buildBaseUrl}) async {
+  static Future<AppConfig> load({bool release = kReleaseMode, String buildBaseUrl = _buildBaseUrl, bool web = kIsWeb}) async {
     final prefs = await SharedPreferences.getInstance();
     if (release) {
-      return AppConfig._(prefs, normalize(buildBaseUrl), editable: false, error: releaseBaseUrlError(buildBaseUrl));
+      return AppConfig._(prefs, normalize(buildBaseUrl), editable: false, error: releaseBaseUrlError(buildBaseUrl, web: web));
     }
     return AppConfig._(prefs, prefs.getString(_key) ?? defaultBaseUrl(buildBaseUrl), editable: true);
   }
@@ -35,17 +37,20 @@ class AppConfig {
   /// `flutter run --dart-define=PAVEX_API_BASE_URL=http://localhost:8080` with `adb reverse`.
   static const _buildBaseUrl = String.fromEnvironment('PAVEX_API_BASE_URL');
 
-  /// The message shown when a release build's server address is missing or not HTTPS; null when it is fine.
-  static String? releaseBaseUrlError(String value) {
+  /// The message shown when a release build's server address is missing or not HTTPS (HTTP or HTTPS
+  /// on the [web]); null when it is fine.
+  static String? releaseBaseUrlError(String value, {bool web = kIsWeb}) {
     final url = value.trim();
     if (url.isEmpty) {
       return 'Bản cài đặt này chưa được gắn địa chỉ máy chủ (PAVEX_API_BASE_URL). '
           'Hãy cài lại bản do bộ phận kỹ thuật Pavex cung cấp.';
     }
     final uri = Uri.tryParse(url);
-    if (uri == null || uri.scheme != 'https' || uri.host.isEmpty || uri.userInfo.isNotEmpty || uri.hasQuery || uri.hasFragment) {
+    final schemes = web ? const ['https', 'http'] : const ['https'];
+    if (uri == null || !schemes.contains(uri.scheme) || uri.host.isEmpty || uri.userInfo.isNotEmpty || uri.hasQuery || uri.hasFragment) {
       return 'Địa chỉ máy chủ của bản cài đặt này không hợp lệ: "$url". '
-          'Bản phát hành chỉ kết nối qua https://. Hãy báo bộ phận kỹ thuật Pavex.';
+          '${web ? 'Bản web chỉ kết nối qua http:// hoặc https://' : 'Bản phát hành chỉ kết nối qua https://'}. '
+          'Hãy báo bộ phận kỹ thuật Pavex.';
     }
     return null;
   }
